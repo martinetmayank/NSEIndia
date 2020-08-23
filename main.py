@@ -1,20 +1,30 @@
 import requests
 import json
+import pandas as pd
 
+pd.set_option('display.width', 1920)
+pd.set_option('display.max_columns', 50)
+pd.set_option('display.max_rows', 1000)
 
 def read_oa(response):
     if expiry_data:
-        ce_data = [data["CE"] for data in response['records']['data'] if "CE" in data and str(
+        ce_values = [data["CE"] for data in response['records']['data'] if "CE" in data and str(
             data['expiryDate']).lower() == str(expiry_data).lower()]
-        pe_data = [data["PE"] for data in response['records']['data'] if "PE" in data and str(
+        pe_values = [data["PE"] for data in response['records']['data'] if "PE" in data and str(
             data['expiryDate']).lower() == str(expiry_data).lower()]
-        print(pe_data)
+
     else:
-        ce_data = [data["CE"]
+        ce_values = [data["CE"]
                    for data in response['filtered']['data'] if "CE" in data]
-        pe_data = [data["PE"]
+        pe_values = [data["PE"]
                    for data in response['filtered']['data'] if "PE" in data]
 
+    ce_data = pd.DataFrame(ce_values)
+    pe_data = pd.DataFrame(pe_values)
+
+    ce_data = ce_data.sort_values(['strikePrice'])
+    pe_data = pe_data.sort_values(['strikePrice'])
+    print(ce_data)
 
 def write_oa(response):
     filename = 'oa_data.json'
