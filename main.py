@@ -1,10 +1,18 @@
 import requests
 import json
 import pandas as pd
+import xlwings
+
 
 pd.set_option('display.width', 1920)
 pd.set_option('display.max_columns', 50)
 pd.set_option('display.max_rows', 1000)
+
+excel_file = 'option_chain_analysis.xlsx'
+workbook = xlwings.Book(excel_file)
+sheet_name = 'OIData'
+sheet_oi_single = workbook.sheets(sheet_name)
+
 
 def read_oa(response):
     if expiry_data:
@@ -15,16 +23,40 @@ def read_oa(response):
 
     else:
         ce_values = [data["CE"]
-                   for data in response['filtered']['data'] if "CE" in data]
+                     for data in response['filtered']['data'] if "CE" in data]
         pe_values = [data["PE"]
-                   for data in response['filtered']['data'] if "PE" in data]
+                     for data in response['filtered']['data'] if "PE" in data]
 
     ce_data = pd.DataFrame(ce_values)
     pe_data = pd.DataFrame(pe_values)
 
     ce_data = ce_data.sort_values(['strikePrice'])
     pe_data = pe_data.sort_values(['strikePrice'])
-    print(ce_data)
+
+    ce_data = ce_data.drop([
+        'askPrice', 'askQty', 'bidQty', 'bidprice',
+        'expiryDate', 'identifier', 'totalBuyQuantity', 'totalSellQuantity',
+        'totalTradedVolume', 'underlying', 'underlyingValue'
+    ], axis=1)[
+        ['change', 'changeinOpenInterest', 'impliedVolatility', 'lastPrice',
+         'openInterest', 'pChange', 'pchangeinOpenInterest', 'strikePrice'
+         ]
+    ]
+    pe_data = pe_data.drop([
+        'askPrice', 'askQty', 'bidQty', 'bidprice',
+        'expiryDate', 'identifier', 'totalBuyQuantity', 'totalSellQuantity',
+        'totalTradedVolume', 'underlying', 'underlyingValue', 'strikePrice'
+    ], axis=1)[
+        ['change', 'changeinOpenInterest', 'impliedVolatility', 'lastPrice',
+         'openInterest', 'pChange', 'pchangeinOpenInterest'
+         ]
+    ]
+
+    sheet_oi_single.range('A2').options(
+        index=False, header=False).value = ce_data
+    sheet_oi_single.range('I2').options(
+        index=False, header=False).value = pe_data
+
 
 def write_oa(response):
     filename = 'oa_data.json'
