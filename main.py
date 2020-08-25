@@ -22,6 +22,7 @@ oi_filenmame = os.path.join(os.getcwd(), 'oi_data_records_{0}.json'.format(
 
 
 def read_oa(response, dataframe):
+    global df_list
     tries = 0
     max_tries = 5
     while tries <= max_tries:
@@ -52,13 +53,22 @@ def read_oa(response, dataframe):
              'openInterest', 'pChange', 'pchangeinOpenInterest', 'strikePrice'
              ]
         ]
+        # pe_data = pe_data.drop([
+        #     'askPrice', 'askQty', 'bidQty', 'bidprice',
+        #     'expiryDate', 'identifier', 'totalBuyQuantity', 'totalSellQuantity',
+        #     'totalTradedVolume', 'underlying', 'underlyingValue', 'strikePrice'
+        # ], axis=1)[
+        #     ['change', 'changeinOpenInterest', 'impliedVolatility', 'lastPrice',
+        #      'openInterest', 'pChange', 'pchangeinOpenInterest'
+        #      ]
+        # ]
         pe_data = pe_data.drop([
             'askPrice', 'askQty', 'bidQty', 'bidprice',
             'expiryDate', 'identifier', 'totalBuyQuantity', 'totalSellQuantity',
-            'totalTradedVolume', 'underlying', 'underlyingValue', 'strikePrice'
+            'totalTradedVolume', 'underlying', 'underlyingValue'
         ], axis=1)[
             ['change', 'changeinOpenInterest', 'impliedVolatility', 'lastPrice',
-             'openInterest', 'pChange', 'pchangeinOpenInterest'
+             'openInterest', 'pChange', 'pchangeinOpenInterest', 'strikePrice'
              ]
         ]
 
@@ -73,17 +83,6 @@ def read_oa(response, dataframe):
         if len(df_list) > 0:
             df1['Time'] = df_list[-1][0]['Time']
 
-        if len(df1.to_dict('records')) == len(df_list[-1]):
-            for x in range(0, len(df1.to_dict('records'))):
-                answer = df1.to_dict('records')[x] == df_list[-1][x]
-                # print(x, df1.to_dict('records')[x], df_list[-1][x], '\n\n\n\n\n')
-                if answer is True:
-                    print(x)
-                    pprint(df_list[-1][x])
-                    pprint(df1.to_dict('records')[x])
-                    break
-                    # print(df1.to_dict('records')[x], df_list[-1][x], '\n\n\n\n\n')
-
 
         if len(df_list) > 0 and df1.to_dict('records') == df_list[-1]:
             print('Dplicate data, not recording...')
@@ -92,6 +91,7 @@ def read_oa(response, dataframe):
             continue
 
         df1['Time'] = datetime.now().strftime('%H:%M')
+        df_list.append(df1.to_dict('records'))
 
         dataframe = pd.concat([dataframe, df1], sort=True)
 
