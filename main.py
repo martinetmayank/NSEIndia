@@ -5,6 +5,7 @@ import xlwings
 from time import sleep
 from datetime import datetime
 import os
+from pprint import pprint
 
 pd.set_option('display.width', 1920)
 pd.set_option('display.max_columns', 50)
@@ -14,13 +15,14 @@ excel_file = 'option_chain_analysis.xlsx'
 workbook = xlwings.Book(excel_file)
 sheet_name = 'OIData'
 sheet_oi_single = workbook.sheets(sheet_name)
-dataframe_list = []
+df_list = []
 
-oi_filenmame = os.path.join(os.getcwd(), 'oi_data_records{0}.json'.format(
-    datetime.now().strftime('%d%M%y')))
+oi_filenmame = os.path.join(os.getcwd(), 'oi_data_records_{0}.json'.format(
+    datetime.now().strftime('%m%d%Y')))
 
 
-def read_oa(response):
+def read_oa(response, dataframe):
+    global df_list
     tries = 0
     max_tries = 5
     while tries <= max_tries:
@@ -51,13 +53,22 @@ def read_oa(response):
              'openInterest', 'pChange', 'pchangeinOpenInterest', 'strikePrice'
              ]
         ]
+        # pe_data = pe_data.drop([
+        #     'askPrice', 'askQty', 'bidQty', 'bidprice',
+        #     'expiryDate', 'identifier', 'totalBuyQuantity', 'totalSellQuantity',
+        #     'totalTradedVolume', 'underlying', 'underlyingValue', 'strikePrice'
+        # ], axis=1)[
+        #     ['change', 'changeinOpenInterest', 'impliedVolatility', 'lastPrice',
+        #      'openInterest', 'pChange', 'pchangeinOpenInterest'
+        #      ]
+        # ]
         pe_data = pe_data.drop([
             'askPrice', 'askQty', 'bidQty', 'bidprice',
             'expiryDate', 'identifier', 'totalBuyQuantity', 'totalSellQuantity',
-            'totalTradedVolume', 'underlying', 'underlyingValue', 'strikePrice'
+            'totalTradedVolume', 'underlying', 'underlyingValue'
         ], axis=1)[
             ['change', 'changeinOpenInterest', 'impliedVolatility', 'lastPrice',
-             'openInterest', 'pChange', 'pchangeinOpenInterest'
+             'openInterest', 'pChange', 'pchangeinOpenInterest', 'strikePrice'
              ]
         ]
 
@@ -68,42 +79,50 @@ def read_oa(response):
 
         ce_data['type'] = 'CE'
         pe_data['type'] = 'PE'
-        new_dataframe = pd.concat(ce_data, pe_data)
-        if len(dataframe_list) > 0:
-            new_dataframe['Time'] = dataframe_list[-1][0]['Time']
+        df1 = pd.concat([ce_data, pe_data], sort=True)
+        if len(df_list) > 0:
+            df1['Time'] = df_list[-1][0]['Time']
 
-        if len(dataframe_list) > 0 and new_dataframe.to_dict('records') == dataframe_list[-1]:
+
+        if len(df_list) > 0 and df1.to_dict('records') == df_list[-1]:
             print('Dplicate data, not recording...')
             sleep(10)
             tries += 1
             continue
 
-        new_dataframe['Time'] = datetime.now().strftime('%H:%M')
-        dataframe_list.append(new_dataframe.to_dict('records'))
+        df1['Time'] = datetime.now().strftime('%H:%M')
+        df_list.append(df1.to_dict('records'))
+
+        dataframe = pd.concat([dataframe, df1], sort=True)
 
         with open(oi_filenmame, 'w') as file:
-            file.write(json.dumps(dataframe_list, indent=4, sort_keys=True))
-        return new_dataframe
+            file.write(json.dumps(df_list, indent=4, sort_keys=False))
+        return df1
 
 
-def write_oa(response):
-    filename = 'oa_data.json'
-    file = open(filename, mode='w+')
-    print('Data is being written to the file', filename, '...')
-    file.write(json.dumps(response, sort_keys=True, indent=4))
-    file.close()
-
-
-def fetch_oa():
+def fetch_oi(dataframe):
     user_agent = {
         'USER-AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36'}
     response = requests.get(url, timeout=10, headers=user_agent).json()
-    # write_oa(response)
-    read_oa(response)
+    output = read_oa(response, dataframe)
+    return output
 
 
 def main():
-    fetch_oa()
+    global df_list
+    try:
+        df_list = json.loads(open(oi_filenmame).read())
+    except Exception as e:
+        print('Error reading file.... error', e)
+        df_list = []
+
+    if df_list:
+        dataframe = pd.DataFrame()
+        for item in df_list:
+            dataframe = pd.concat([dataframe, pd.DataFrame(item)], sort=False)
+    else:
+        dataframe = pd.DataFrame()
+    fetch_oi(dataframe)
 
 
 if __name__ == '__main__':
